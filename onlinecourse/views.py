@@ -122,27 +122,35 @@ def submit(request, course_id):
     return HttpResponseRedirect(reverse('onlinecourse:exam_result', args=(course.id, submission.id)))
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results
+
 def show_exam_result(request, course_id, submission_id):
     context = {}
     course = get_object_or_404(Course, pk=course_id)
     submission = Submission.objects.get(id=submission_id)
-    choices = submission.choices.all()
+    
+    # Get all selected choices objects
+    submitted_choices = submission.choices.all()
+    
+    # --- THE FIX: Create a set of just the IDs for easy comparing in the template ---
+    submitted_choice_ids = set(c.id for c in submitted_choices)
 
     total_score = 0
     questions = course.question_set.all()
 
     for question in questions:
-        # Get correct choices for this question
         correct_choices = question.choice_set.filter(is_correct=True)
-        # Get user's selected choices for this question
-        selected_choices = choices.filter(question=question)
+        selected_choices = submitted_choices.filter(question=question)
 
-        # Check if the selected choices match the correct choices exactly
-        if set(correct_choices) == set(selected_choices):
+        correct_ids = set(c.id for c in correct_choices)
+        selected_ids = set(c.id for c in selected_choices)
+
+        if correct_ids == selected_ids:
             total_score += question.grade
 
     context['course'] = course
     context['grade'] = total_score
     context['submission'] = submission
+    # Pass the IDs to the template instead of the objects for comparison
+    context['submitted_choice_ids'] = submitted_choice_ids 
     
     return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
